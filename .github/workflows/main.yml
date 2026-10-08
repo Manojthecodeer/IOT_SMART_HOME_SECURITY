@@ -17,33 +17,30 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: backend
         run: npm ci
 
       - name: Run tests
-        working-directory: backend
         run: npm test -- --runInBand
 
       - name: Run lint
-        working-directory: backend
         run: npm run lint --if-present
 
       - name: Security audit
-        working-directory: backend
         run: npm audit --audit-level=high
 
       - name: Check for secrets
+        shell: bash
         run: |
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude='*.lock' \
-            '(password|secret|api[_-]?key|private[_-]?key|JWT_SECRET)[[:space:]]*=' .; then
+          if git grep -nE \
+            -- ':!*.lock' \
+               ':!.env.example' \
+               ':!*.md' \
+               '([Pp]assword|[Ss]ecret|[Aa][Pp][Ii][_ -]?[Kk]ey|[Pp]rivate[_ -]?[Kk]ey|JWT_SECRET)[[:space:]]*='; then
             echo "Potential hardcoded secret detected"
             exit 1
           fi
@@ -65,10 +62,12 @@ jobs:
       - name: Package project
         run: |
           mkdir -p release
-          tar --exclude='.git' \
-              --exclude='node_modules' \
-              --exclude='.env' \
-              -czf release/smarthome-sse.tar.gz .
+          tar \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='coverage' \
+            -czf release/smarthome-sse.tar.gz .
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
