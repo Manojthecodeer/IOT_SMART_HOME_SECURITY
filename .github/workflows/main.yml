@@ -19,18 +19,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install backend dependencies
+        working-directory: backend
         run: npm ci
 
       - name: Run tests
+        working-directory: backend
         run: npm test -- --runInBand
 
       - name: Run lint
+        working-directory: backend
         run: npm run lint --if-present
 
       - name: Security audit
+        working-directory: backend
         run: npm audit --audit-level=high
 
       - name: Check for secrets
