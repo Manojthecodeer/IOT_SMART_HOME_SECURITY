@@ -1,0 +1,77 @@
+name: SmartHome SSE CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test -- --runInBand
+
+      - name: Run lint
+        working-directory: backend
+        run: npm run lint --if-present
+
+      - name: Security audit
+        working-directory: backend
+        run: npm audit --audit-level=high
+
+      - name: Check for secrets
+        run: |
+          if grep -RInE \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude='*.lock' \
+            '(password|secret|api[_-]?key|private[_-]?key|JWT_SECRET)[[:space:]]*=' .; then
+            echo "Potential hardcoded secret detected"
+            exit 1
+          fi
+
+      - name: Build Docker image
+        run: docker build -t smarthome-sse:${{ github.sha }} .
+
+      - name: Validate Docker Compose
+        run: docker compose config
+
+  package:
+    needs: build-test-security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Package project
+        run: |
+          mkdir -p release
+          tar --exclude='.git' \
+              --exclude='node_modules' \
+              --exclude='.env' \
+              -czf release/smarthome-sse.tar.gz .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smarthome-sse
+          path: release/smarthome-sse.tar.gz
