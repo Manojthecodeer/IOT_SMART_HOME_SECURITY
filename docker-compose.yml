@@ -1,0 +1,49 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: smarthome
+      MYSQL_USER: ${DB_USER:-smarthome_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]          # no published ports: the database is not reachable from the host
+
+  app:
+    build: .
+    image: smarthome-security:1.1
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: smarthome
+      DB_USER: ${DB_USER:-smarthome_app}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_HOMEOWNER_PASSWORD: ${SEED_HOMEOWNER_PASSWORD:-}
+    ports:
+      - "3000:3000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
+
+networks:
+  backend: {}
+volumes:
+  db_data: {}

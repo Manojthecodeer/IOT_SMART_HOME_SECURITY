@@ -1,0 +1,10 @@
+{
+  "name": "smarthome-security-project",
+  "private": true,
+  "version": "1.1.0",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../iot-simulator && npm install",
+    "test": "cd backend && npm test",
+    "demo": "cd backend && npm run demo"
+  }
+}
